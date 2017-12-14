@@ -10,19 +10,17 @@ import { withMocks } from 'appium-test-support';
 
 chai.use(chaiAsPromised);
 
-const selendroidTestApp = path.resolve(helpers.rootDir, 'test', 'fixtures',
-                                       'selendroid-test-app.apk'),
+const selendroidTestApp = path.resolve(helpers.rootDir, 'test', 'fixtures', 'selendroid-test-app.apk'),
       helperJarPath = path.resolve(helpers.rootDir, 'jars'),
-      keystorePath = path.resolve(helpers.rootDir, 'test', 'fixtures',
-                                  'appiumtest.keystore'),
-      default_key_path = path.resolve(helpers.rootDir, 'keys', 'testkey.pk8'),
-      default_cert_path = path.resolve(helpers.rootDir, 'keys', 'testkey.x509.pem'),
+      keystorePath = path.resolve(helpers.rootDir, 'test', 'fixtures', 'appiumtest.keystore'),
+      defaultKeyPath = path.resolve(helpers.rootDir, 'keys', 'testkey.pk8'),
+      defaultCertPath = path.resolve(helpers.rootDir, 'keys', 'testkey.x509.pem'),
       keyAlias = 'appiumtest',
       password = 'android',
       selendroidTestAppPackage = 'io.selendroid.testapp',
-      java_dummy_path = 'java_dummy_path',
-      java_home = 'java_home',
-      apksigner_dummy_path = '/path/to/apksigner',
+      javaDummyPath = 'java_dummy_path',
+      javaHome = 'java_home',
+      apksignerDummyPath = '/path/to/apksigner',
       tempDir = appiumSupport.tempDir,
       fs = appiumSupport.fs;
 
@@ -36,10 +34,10 @@ describe('signing', () => {
   describe('signWithDefaultCert', withMocks({teen_process, helpers}, (mocks) => {
     it('should call exec with correct args', async () => {
       mocks.helpers.expects("getApksignerForOs")
-        .returns(apksigner_dummy_path);
+        .returns(apksignerDummyPath);
       mocks.teen_process.expects("exec")
-        .once().withExactArgs(apksigner_dummy_path, ['sign',
-          '--key', default_key_path, '--cert', default_cert_path, selendroidTestApp])
+        .once().withExactArgs(apksignerDummyPath, ['sign',
+          '--key', defaultKeyPath, '--cert', defaultCertPath, selendroidTestApp])
         .returns("");
       await adb.signWithDefaultCert(selendroidTestApp);
       mocks.teen_process.verify();
@@ -49,15 +47,15 @@ describe('signing', () => {
     it('should fallback to sign.jar if apksigner fails', async () => {
       let signPath = path.resolve(helperJarPath, 'sign.jar');
       mocks.helpers.expects("getApksignerForOs")
-        .returns(apksigner_dummy_path);
+        .returns(apksignerDummyPath);
       mocks.teen_process.expects("exec")
-        .once().withExactArgs(apksigner_dummy_path, ['sign',
-          '--key', default_key_path, '--cert', default_cert_path, selendroidTestApp])
+        .once().withExactArgs(apksignerDummyPath, ['sign',
+          '--key', defaultKeyPath, '--cert', defaultCertPath, selendroidTestApp])
         .throws();
       mocks.helpers.expects("getJavaForOs")
-        .returns(java_dummy_path);
+        .returns(javaDummyPath);
       mocks.teen_process.expects("exec")
-        .once().withExactArgs(java_dummy_path, ['-jar', signPath, selendroidTestApp, '--override'])
+        .once().withExactArgs(javaDummyPath, ['-jar', signPath, selendroidTestApp, '--override'])
         .returns("");
       await adb.signWithDefaultCert(selendroidTestApp);
       mocks.teen_process.verify();
@@ -75,9 +73,9 @@ describe('signing', () => {
       adb.useKeystore = true;
 
       mocks.helpers.expects("getApksignerForOs")
-        .returns(apksigner_dummy_path);
+        .returns(apksignerDummyPath);
       mocks.teen_process.expects("exec")
-        .withExactArgs(apksigner_dummy_path, ['sign',
+        .withExactArgs(apksignerDummyPath, ['sign',
           '--ks', keystorePath,
           '--ks-key-alias', keyAlias,
           '--ks-pass', `pass:${password}`,
@@ -90,16 +88,16 @@ describe('signing', () => {
     });
 
     it('should fallback to jarsigner if apksigner fails', async () => {
-      let jarsigner = path.resolve(java_home, 'bin', 'jarsigner');
+      let jarsigner = path.resolve(javaHome, 'bin', 'jarsigner');
       if (appiumSupport.system.isWindows()) {
         jarsigner = jarsigner + '.exe';
       }
       adb.useKeystore = true;
 
       mocks.helpers.expects("getApksignerForOs")
-        .returns(apksigner_dummy_path);
+        .returns(apksignerDummyPath);
       mocks.teen_process.expects("exec")
-        .withExactArgs(apksigner_dummy_path, ['sign',
+        .withExactArgs(apksignerDummyPath, ['sign',
           '--ks', keystorePath,
           '--ks-key-alias', keyAlias,
           '--ks-pass', `pass:${password}`,
@@ -107,11 +105,11 @@ describe('signing', () => {
           selendroidTestApp])
         .throws();
       mocks.helpers.expects("getJavaHome")
-        .returns(java_home);
+        .returns(javaHome);
       mocks.helpers.expects("getJavaForOs")
-        .returns(java_dummy_path);
+        .returns(javaDummyPath);
       mocks.teen_process.expects("exec")
-        .withExactArgs(java_dummy_path, ['-jar', path.resolve(helperJarPath, 'unsign.jar'), selendroidTestApp])
+        .withExactArgs(javaDummyPath, ['-jar', path.resolve(helperJarPath, 'unsign.jar'), selendroidTestApp])
         .returns("");
       mocks.teen_process.expects("exec")
         .withExactArgs(jarsigner, ['-sigalg', 'MD5withRSA', '-digestalg', 'SHA1',
@@ -127,7 +125,7 @@ describe('signing', () => {
   describe('getKeystoreMd5', withMocks({teen_process}, (mocks) => {
     it('should call exec with correct args', async () => {
       let h = "a-fA-F0-9";
-      let keytool = path.resolve(java_home, 'bin', 'keytool');
+      let keytool = path.resolve(javaHome, 'bin', 'keytool');
       let md5Str = ['.*MD5.*((?:[', h, ']{2}:){15}[', h, ']{2})'].join('');
       let md5 = new RegExp(md5Str, 'mi');
       adb.useKeystore = true;
@@ -177,12 +175,9 @@ describe('signing', () => {
       adb.useKeystore = false;
 
       mocks.helpers.expects("getApksignerForOs")
-        .returns(apksigner_dummy_path);
+        .returns(apksignerDummyPath);
       mocks.teen_process.expects("exec")
-        .once().withExactArgs(apksigner_dummy_path, ['verify', selendroidTestApp])
-        .returns("");
-      mocks.adb.expects('zipAlignApk')
-        .once().withExactArgs(selendroidTestApp)
+        .once().withExactArgs(apksignerDummyPath, ['verify', selendroidTestApp])
         .returns("");
       (await adb.checkApkCert(selendroidTestApp, selendroidTestAppPackage)).should.be.true;
       mocks.adb.verify();
@@ -196,12 +191,9 @@ describe('signing', () => {
       mocks.helpers.expects("getApksignerForOs")
         .throws();
       mocks.helpers.expects("getJavaForOs")
-        .returns(java_dummy_path);
+        .returns(javaDummyPath);
       mocks.teen_process.expects("exec")
-        .withExactArgs(java_dummy_path, ['-jar', path.resolve(helperJarPath, 'verify.jar'), selendroidTestApp])
-        .returns("");
-      mocks.adb.expects('zipAlignApk')
-        .once().withExactArgs(selendroidTestApp)
+        .withExactArgs(javaDummyPath, ['-jar', path.resolve(helperJarPath, 'verify.jar'), selendroidTestApp])
         .returns("");
       (await adb.checkApkCert(selendroidTestApp, selendroidTestAppPackage)).should.be.true;
       mocks.adb.verify();
